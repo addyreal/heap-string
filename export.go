@@ -46,6 +46,10 @@ func FromFile(p string) (error, *Buffer) {
 		return err, nil
 	}
 
+	if len(b) == 0 || b == nil {
+		return errors.New("Mmap failed"), nil
+	}
+
 	err = unix.Mlock(b)
 	if err != nil {
 		unix.Munmap(b)
