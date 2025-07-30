@@ -21,3 +21,9 @@ func getSizes(stat unix.Stat_t) (error, int, int) {
 
 	return nil, size, aligned
 }
+
+func null(b []byte, n int) {
+	for i := 0; i < n; i++ {
+		b[i] = 0
+	}
+}

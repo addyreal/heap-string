@@ -58,6 +58,31 @@ func FromFile(p string) (error, *Buffer) {
 
 	_ = unix.Madvise(b, unix.MADV_DONTDUMP)
 	_ = unix.Madvise(b, unix.MADV_WIPEONFORK)
+
+	t := 0
+	for t < s {
+		n, err := unix.Read(fd, b[t:s])
+		if err != nil {
+			null(b, s)
+			unix.Munlock(b)
+			unix.Munmap(b)
+			return err, nil
+		}
+
+		if n == 0 {
+			break
+		}
+
+		t += n
+	}
+
+	if t != s {
+		null(b, s)
+		unix.Munlock(b)
+		unix.Munmap(b)
+		return errors.New("Read failed"), nil 
+	}
+
 	_ = unix.Msync(b, unix.MS_SYNC)
 
 	return nil, &Buffer{b: b, n: s}
