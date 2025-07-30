@@ -58,41 +58,21 @@ func FromFile(p string) (error, *Buffer) {
 
 	_ = unix.Madvise(b, unix.MADV_DONTDUMP)
 	_ = unix.Madvise(b, unix.MADV_WIPEONFORK)
-
-	t := 0
-	for t < s {
-		n, err := unix.Read(fd, b[t:s])
-		if err != nil {
-			wipe(b)
-			unix.Munlock(b)
-			unix.Munmap(b)
-			return err, nil
-		}
-
-		if n == 0 {
-			break
-		}
-
-		t += n
-	}
-
-	if t != s {
-		wipe(b)
-		unix.Munlock(b)
-		unix.Munmap(b)
-		return errors.New("Read failed"), nil 
-	}
-
 	_ = unix.Msync(b, unix.MS_SYNC)
-	return nil, &Buffer{b: b[:s]}
+
+	return nil, &Buffer{b: b, n: s}
 }
 
 func (x *Buffer) Get() []byte {
-	return x.b
+	return x.b[:x.n]
 }
 
 func (x *Buffer) Wipe() {
-	wipe(x.b)
+	for i := 0; i < x.n; i++ {
+		x.b[i] = 0
+	}
+
+	runtime.KeepAlive(x.b)
 }
 
 func (x *Buffer) Free() error {
@@ -100,7 +80,7 @@ func (x *Buffer) Free() error {
 		return nil
 	}
 
-	wipe(x.b)
+	x.Wipe()
 	_ = unix.Msync(x.b, unix.MS_SYNC)
 
 	err := unix.Munlock(x.b)
