@@ -28,7 +28,7 @@ func FromFile(p string) (error, *Buffer) {
 		return errors.New("Ownership check failed"), nil
 	}
 
-	if stat.Mode&0o777 != 0o600 {
+	if stat.Mode&0o777 != 0o400 {
 		return errors.New("Permission check failed"), nil
 	}
 
