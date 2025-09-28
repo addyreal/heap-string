@@ -88,6 +88,15 @@ func FromFile(p string) (error, *Buffer) {
 	return nil, &Buffer{b: b, n: s}
 }
 
+func (x *Buffer) GetTrimmed() []byte {
+	literal := x.b[:x.n]
+	if literal[len(literal) - 1] == '\n' {
+		return literal[:(len(literal) - 1)]
+	}
+
+	return literal
+}
+
 func (x *Buffer) Get() []byte {
 	return x.b[:x.n]
 }
