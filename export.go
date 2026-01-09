@@ -12,7 +12,7 @@ type Buffer struct {
 	n int
 }
 
-func FromFile(p string) (error, *Buffer) {
+func FromFile(p string) (*Buffer, error) {
 	// Lock thread
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -20,7 +20,7 @@ func FromFile(p string) (error, *Buffer) {
 	// Open file
 	fd, err := unix.Open(p, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	defer unix.Close(fd)
 
@@ -28,24 +28,24 @@ func FromFile(p string) (error, *Buffer) {
 	var stat unix.Stat_t
 	err = unix.Fstat(fd, &stat)
 	if err != nil || (stat.Mode&unix.S_IFMT) != unix.S_IFREG {
-		return err, nil
+		return nil, err
 	}
 
 	// Check uid
 	if stat.Uid != uint32(os.Getuid()) && stat.Uid != 0 {
-		return errors.New("Ownership check failed"), nil
+		return nil, errors.New("Ownership check failed")
 	}
 
 	// Check mode
 	if stat.Mode&0o777 != 0o400 {
-		return errors.New("Permission check failed"), nil
+		return nil, errors.New("Permission check failed")
 	}
 
 	// Get sizes
 	s := int(stat.Size)
 	as := (s + unix.Getpagesize() - 1) & ^(unix.Getpagesize() - 1)
 	if s <= 0 {
-		return errors.New("Size check failed"), nil
+		return nil, errors.New("Size check failed")
 	}
 
 	// Mmap
@@ -55,17 +55,17 @@ func FromFile(p string) (error, *Buffer) {
 		unix.MAP_ANON|unix.MAP_PRIVATE,
 	)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	if len(b) == 0 || b == nil {
-		return errors.New("Mmap failed"), nil
+		return nil, errors.New("Mmap failed")
 	}
 
 	// Mlock
 	err = unix.Mlock(b)
 	if err != nil {
 		unix.Munmap(b)
-		return err, nil
+		return nil, err
 	}
 
 	// Madvise
@@ -82,7 +82,7 @@ func FromFile(p string) (error, *Buffer) {
 			}
 			unix.Munlock(b)
 			unix.Munmap(b)
-			return err, nil
+			return nil, err
 		}
 
 		if n == 0 {
@@ -97,13 +97,13 @@ func FromFile(p string) (error, *Buffer) {
 		}
 		unix.Munlock(b)
 		unix.Munmap(b)
-		return errors.New("Read failed"), nil
+		return nil, errors.New("Read failed")
 	}
 
 	// Msync
 	_ = unix.Msync(b, unix.MS_SYNC)
 
-	return nil, &Buffer{b: b, n: s}
+	return &Buffer{b: b, n: s}, nil
 }
 
 func (x *Buffer) GetRaw() []byte {
